@@ -65,6 +65,7 @@ typedef struct {
   double steering_angle;
   double cruising_speed;
   double throttle;
+  double prev_torque;
   double brake;
   int gear;
   int dipped_beams_state;
@@ -142,6 +143,14 @@ static double differential_ratio_central() {
 
   return (wheels_radius_ratio * front_turning_radius) / (front_turning_radius + rear_turning_radius);
 }
+
+//////////////////////////////////
+//
+//  Computing torque 
+//
+////////////////////////////////////
+
+
 
 static double compute_output_torque() {
   // Compute available torque taking into account the current gear ratio and engine model
@@ -319,8 +328,18 @@ static void update_slip_ratio() {
   }
 }
 
-static void update_torque() {
-  double torque = compute_output_torque();
+///////////////////////////////////////////
+//
+//  Updating torque 
+//
+///////////////////////////////////////////
+
+static void update_torque(double curr_torque) {
+
+  double Kb = 1.5; 
+  double tow = 0.5;
+  double Kc = 1800*(instance->car->front_wheel_radius)/(instance->gear)   // m*R/gr
+  double torque = compute_output_torque()*Kb*Kc*(instance->basic_time_step)/tow + curr_torque* ( 1 - (instance->basic_time_step)/tow) ;
 
   // Distribute the available torque to the actuated wheels using 'geometric' differential rules
   if (instance->car->type == WBU_CAR_TRACTION) {
@@ -474,6 +493,7 @@ void wbu_driver_init() {
   instance->steering_angle = 0.0;
   instance->cruising_speed = 0.0;
   instance->throttle = 0.0;
+  instance->prev_torque = 0.0; 
   instance->brake = 0.0;
   instance->gear = 0;
   instance->dipped_beams_state = 0;
