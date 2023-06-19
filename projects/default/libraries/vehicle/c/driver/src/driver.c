@@ -339,7 +339,7 @@ static void update_torque(double curr_torque) {
   double Kb = 1.5; 
   double tow = 0.5;
   double Kc = 1800*(instance->car->front_wheel_radius)/(instance->gear)   // m*R/gr
-  double torque = compute_output_torque()*Kb*Kc*(instance->basic_time_step)/tow + curr_torque* ( 1 - (instance->basic_time_step)/tow) ;
+  double torque = compute_output_torque()*Kb*Kc*(instance->basic_time_step)/tow + curr_torque*( 1 - (instance->basic_time_step)/tow) ;
 
   // Distribute the available torque to the actuated wheels using 'geometric' differential rules
   if (instance->car->type == WBU_CAR_TRACTION) {
@@ -393,6 +393,7 @@ static void update_torque(double curr_torque) {
     wb_motor_set_torque(instance->car->wheels[2], rear_right_torque);
     wb_motor_set_torque(instance->car->wheels[3], rear_left_torque);
   }
+return torque ;
 }
 
 static void update_brake() {
@@ -563,7 +564,7 @@ int wbu_driver_step() {
     // update the differential slip ratio if limited differential slip is enable
     if (instance->car->limited_slip_differential)
       update_slip_ratio();
-    update_torque();
+    instance->prev_torque =  update_torque(instance->prev_torque);
   }
 
   // update brake (dependant of the rotation speed of the wheels)
