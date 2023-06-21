@@ -337,19 +337,21 @@ static void update_slip_ratio() {
 static double update_torque(double curr_torque) {
   double increamental_torque = 0; 
 
-  if (engine == WBU_CAR_ELECTRIC_ENGINE || engine == WBU_CAR_PARALLEL_HYBRID_ENGINE ||
-      engine == WBU_CAR_POWER_SPLIT_HYBRID_ENGINE) {
+  if (engine == WBU_CAR_ELECTRIC_ENGINE) {
     double temporary_engine_torque = (instance->car->engine_max_power * 60) / (2 * M_PI * real_rpm);
-    increamental_torque = compute_output_torque()/temporary_engine_torque
-    if (temporary_engine_torque > instance->car->engine_max_torque)
+    increamental_torque = compute_output_torque()/temporary_engine_torque ;
+    if (temporary_engine_torque > instance->car->engine_max_torque) {
       temporary_engine_torque = instance->car->engine_max_torque;
       increamental_torque = compute_output_torque()/temporary_engine_torque;
-    engine_torque += temporary_engine_torque;
-  
+    }
   double Kb = 1.5; 
   double tow = 0.5;
   double Kc = 1800*(instance->car->front_wheel_radius)/(instance->gear) ;  // m*R/gr
-  double torque = compute_output_torque()*Kb*Kc*(instance->basic_time_step)/tow + curr_torque*( 1 - (instance->basic_time_step)/tow) ;
+  double torque = increamental_torque*Kb*Kc*(instance->basic_time_step)/tow + curr_torque*( 1 - (instance->basic_time_step)/tow) ;
+    
+  } else 
+    double torque = compute_output_torque();
+  
 
   // Distribute the available torque to the actuated wheels using 'geometric' differential rules
   if (instance->car->type == WBU_CAR_TRACTION) {
