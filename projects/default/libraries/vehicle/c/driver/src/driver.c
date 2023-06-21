@@ -334,11 +334,11 @@ static void update_slip_ratio() {
 //
 ///////////////////////////////////////////
 
-static void update_torque(double curr_torque) {
+static double update_torque(double curr_torque) {
 
   double Kb = 1.5; 
   double tow = 0.5;
-  double Kc = 1800*(instance->car->front_wheel_radius)/(instance->gear)   // m*R/gr
+  double Kc = 1800*(instance->car->front_wheel_radius)/(instance->gear) ;  // m*R/gr
   double torque = compute_output_torque()*Kb*Kc*(instance->basic_time_step)/tow + curr_torque*( 1 - (instance->basic_time_step)/tow) ;
 
   // Distribute the available torque to the actuated wheels using 'geometric' differential rules
