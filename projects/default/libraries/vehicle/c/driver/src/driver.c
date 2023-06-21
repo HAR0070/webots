@@ -352,6 +352,10 @@ static double update_torque(double curr_torque) {
     }
 
   torque = increamental_torque*Kb*Kc*(instance->basic_time_step)/tow + curr_torque*( 1 - (instance->basic_time_step)/tow) ;
+  if (torque > instance->car->engine_max_torque)
+    torque = instance->car->engine_max_torque;
+  if (torque > temporary_engine_torque)
+    torque = temporary_engine_torque; 
 }
 
   // Distribute the available torque to the actuated wheels using 'geometric' differential rules
@@ -966,4 +970,3 @@ wbu_wipers_mode wbu_driver_get_wipers_mode() {
 void wbu_driver_set_wipers_mode(wbu_wipers_mode mode) {
   wbu_driver_set_wiper_mode(mode);
 }
-s
