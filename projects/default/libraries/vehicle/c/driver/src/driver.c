@@ -341,7 +341,7 @@ static double update_torque(double curr_torque) {
   double torque = compute_output_torque();
   double Kb = 1.5;
   double tow = 0.5;
-  double Kc = 1800*(instance->car->front_wheel_radius)/(instance->gear) ;  // m*R/gr
+  double Kc = 4000*(instance->car->front_wheel_radius)/(instance->gear) ;  // m*R/gr
 
   if (engine == WBU_CAR_ELECTRIC_ENGINE) {
     double temporary_engine_torque = (instance->car->engine_max_power * 60) / (2 * M_PI * real_rpm);
@@ -350,13 +350,18 @@ static double update_torque(double curr_torque) {
       temporary_engine_torque = instance->car->engine_max_torque;
       increamental_torque = compute_output_torque()/temporary_engine_torque;
     }
-
+  // Applied torque is this
+  //
   torque = increamental_torque*Kb*Kc*(instance->basic_time_step)/tow + curr_torque*( 1 - (instance->basic_time_step)/tow) ;
-  if (torque > instance->car->engine_max_torque)
-    torque = instance->car->engine_max_torque;
-  if (torque > temporary_engine_torque)
-    torque = temporary_engine_torque; 
+
+// this 1.5 is simply to increase the torque limits
+
+  if (torque > instance->car->engine_max_torque*1.5)
+    torque = instance->car->engine_max_torque*1.5;
+  if (torque > temporary_engine_torque*1.5)
+    torque = temporary_engine_torque*1.5;
 }
+
 
   // Distribute the available torque to the actuated wheels using 'geometric' differential rules
   if (instance->car->type == WBU_CAR_TRACTION) {
