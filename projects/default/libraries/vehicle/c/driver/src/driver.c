@@ -143,7 +143,7 @@ static double differential_ratio_central() {
   return (wheels_radius_ratio * front_turning_radius) / (front_turning_radius + rear_turning_radius);
 }
 
-static double compute_output_torque(int ms) {
+static double compute_output_torque(int ms, double current_torque) {
   // Compute available torque taking into account the current gear ratio and engine model
   double gear_ratio;
   if (instance->gear > 0)
@@ -161,7 +161,20 @@ static double compute_output_torque(int ms) {
   if (instance->gear > 0 && real_rpm < 0)
     real_rpm = 0;
   double engine_rpm = real_rpm;
+  if ((engine_rpm < instance->car->engine_min_rpm) &&
+      (engine == WBU_CAR_COMBUSTION_ENGINE || engine == WBU_CAR_PARALLEL_HYBRID_ENGINE ||
+       engine == WBU_CAR_POWER_SPLIT_HYBRID_ENGINE))
+    engine_rpm = instance->car->engine_min_rpm;
 
+  // in case of parallel hybrid engine, the combustion engine is switch on only if min-rpm is reached
+  if (engine == WBU_CAR_COMBUSTION_ENGINE || (engine == WBU_CAR_PARALLEL_HYBRID_ENGINE && real_rpm == engine_rpm))
+    engine_torque += instance->car->engine_coefficients[0] + engine_rpm * instance->car->engine_coefficients[1] +
+                     engine_rpm * engine_rpm * instance->car->engine_coefficients[2];
+  if (engine == WBU_CAR_POWER_SPLIT_HYBRID_ENGINE && real_rpm == engine_rpm)
+    engine_torque +=
+      (1 - instance->car->hybrid_power_split_ratio) *
+      (instance->car->engine_coefficients[0] + instance->car->hybrid_power_split_rpm * instance->car->engine_coefficients[1] +
+       instance->car->hybrid_power_split_rpm * instance->car->hybrid_power_split_rpm * instance->car->engine_coefficients[2]);
   if (engine == WBU_CAR_ELECTRIC_ENGINE || engine == WBU_CAR_PARALLEL_HYBRID_ENGINE ||
       engine == WBU_CAR_POWER_SPLIT_HYBRID_ENGINE) {
     double temporary_engine_torque = (instance->car->engine_max_power * 60) / (2 * M_PI * real_rpm);
@@ -175,9 +188,10 @@ static double compute_output_torque(int ms) {
   this is where the change is
 
   */
+  double tau = 0.25;
   double output_torque = engine_torque * instance->throttle * gear_ratio;
-  double error = output_torque - instance->current_torque;
-  output_torque = instance->current_torque + error*(1-exp(-1*instance->basic_time_step/instance->tau))
+  double error = output_torque - current_torque;
+  output_torque = current_torque + error*(1-exp(-1*instance->basic_time_step/tau));
 
   if (real_rpm == instance->car->engine_max_rpm)  // maximum rotation speed of the motor, we don't want to increase it !
     output_torque = 0;
@@ -187,7 +201,6 @@ static double compute_output_torque(int ms) {
   if (fabs(instance->car->max_acceleration) > ACCELERATION_THRESHOLD)
     output_torque *= (ACCELERATION_THRESHOLD / fabs(instance->car->max_acceleration));
 
-  instance->current_torque =  output_torque;
   return output_torque;
 }
 
@@ -314,9 +327,8 @@ static void update_slip_ratio() {
   }
 }
 
-static void update_torque() {
-  double torque = compute_output_torque((int)instance->basic_time_step);
-
+static double update_torque(double prev_torque) {
+  double torque = compute_output_torque((int)instance->basic_time_step, prev_torque);
   // Distribute the available torque to the actuated wheels using 'geometric' differential rules
   if (instance->car->type == WBU_CAR_TRACTION) {
     // Geometric differential ratio (left and right wheel should not have same torque because the rotation radius is not the
@@ -369,7 +381,8 @@ static void update_torque() {
     wb_motor_set_torque(instance->car->wheels[2], rear_right_torque);
     wb_motor_set_torque(instance->car->wheels[3], rear_left_torque);
   }
-}
+    return torque;
+  }
 
 static void update_brake() {
   // Compute and apply dampingConstant
@@ -455,6 +468,9 @@ static void update_engine_sound() {
 //***********************************//
 //          API functions            //
 //***********************************//
+// Initialization of prev_torque as a global variable
+
+double prev_torque = 0.0;
 
 void wbu_driver_init() {
   if (instance != NULL)
@@ -469,10 +485,8 @@ void wbu_driver_init() {
   instance->steering_angle = 0.0;
   instance->cruising_speed = 0.0;
   instance->throttle = 0.0;
-  instance->current_torque = 0.0;
   instance->brake = 0.0;
   instance->gear = 0;
-  instance->tau = 0.25;
   instance->dipped_beams_state = 0;
   instance->rpm = 0.0;
   instance->control_mode = UNDEFINED_CONTROL_MODE;
@@ -488,6 +502,7 @@ void wbu_driver_init() {
     exit(0);
   }
 }
+
 
 int wbu_driver_step() {
   if (!_wbu_car_check_initialisation("wbu_driver_init()", "wbu_driver_step()"))
@@ -540,7 +555,9 @@ int wbu_driver_step() {
     // update the differential slip ratio if limited differential slip is enable
     if (instance->car->limited_slip_differential)
       update_slip_ratio();
-    update_torque();
+
+    prev_torque = update_torque(prev_torque);
+
   }
 
   // update brake (dependant of the rotation speed of the wheels)
