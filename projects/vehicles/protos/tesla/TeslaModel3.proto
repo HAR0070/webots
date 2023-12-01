@@ -47,7 +47,7 @@ PROTO TeslaModel3 [
     engineSound IS engineSound
     brakeCoefficient 2000
     time0To100 4
-    engineMaxTorque 639
+    engineMaxTorque 400
     engineMaxPower 147000
     engineMaxRPM 25000
     suspensionFrontDampingConstant 10000
